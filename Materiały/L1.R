@@ -144,50 +144,85 @@ sizeData <- data.frame(
   InnermostCount=c(1),
   OutermosrCount=c(1)
   )
-nestList <- function(seedList, level) {
-  print(glue::glue("list={seedList}"))
+nestList <- function(seedList, leafList, level) {
   if(level > 0) {
     lapply(seedList, function(i){
-      print(glue::glue("i={i}"))
-      print(glue::glue("level={level}"))
-      res <- nestList(list(i), level-1)
-      print(glue::glue("res={res}"))
+      res <- nestList(i, leafList, level-1)
       res
     })
   } else {
-    seedList
+    leafList
   }
 }
-
-nest <- nestList(1:3,3)
-nest
 
 createNestedList <- function(
   outermostCount,
   nestedCount,
   nesting,
   innerMostCount) {
-  res <- list(1:outermostCount)
+  res <- 1:outermostCount %>% as.list()
   lapply(res, function(i){
-    nestedLists <- list(1:nestedCount)
-    lapply(nestedLists, function(i){
-      
-    })
+     nestList(1:nestedCount, 1:innerMostCount, nesting)
   })
 }
 
-sizeData[[1]][[1]] = 1
+sizeData = data.frame()
+names(sizeData)=c("Outermost", "Nested", "Nestings", "Innermost")
+
 for(i in 1:50) {
   for(j in 1:5) {
     for(k in 1:5) {
       for(l in 1:50) {
-        
-        
+        size <- object.size(createNestedList(i,j,k,l))
+        dataRow <- data.frame(
+          Outermost=i,
+          Nested=j,
+          Nestings=k,
+          Innermost=l,
+          Size=size %>% as.numeric()
+        )
+        sizeData <- rbind(sizeData, dataRow)
       }
     }
   }
 }
 
+head(sizeData)
+
+sizeData %>% ggplot(aes(x=Outermost, y=Innermost)) +
+  geom_tile(aes(fill=(Size/(Outermost*Innermost*Nested)))) +
+  facet_wrap(Nested~Nestings) +
+  theme(
+    strip.text.x = element_blank()
+  )
+  theme_classic()
+
+
+  
+sizeData %>% mutate(Elements=Outermost*Innermost*Nested, SizeByElems=(Size/(Elements))) -> processedData
+  
+processeddata %>% ggplot(aes(x=elements, y=size, group=nestings, col=factor(nestings))) +
+  geom_point()
+  
+processedData %>% ggplot(aes(x=Elements, y=Size, group=Nestings, col=factor(Nestings))) +
+  geom_point() +
+  facet_wrap(~Nestings)
+  
+
+processedData %>% ggplot(aes(x=Elements, y=Size, group=Nestings, col=factor(Nested))) +
+  geom_point() +
+  facet_wrap(~Nestings)
+
+processedData %>% ggplot(aes(x=Elements, y=Size, group=Nestings, col=factor(Innermost))) +
+  geom_point() +
+  facet_wrap(~Nestings)
+
+
+sizeData %>% mutate(Count=Outermost*Nested) %>%  ggplot(aes(y=Count, x=Innermost)) +
+  scale_y_log10(  ) +
+  geom_tile(aes(fill=(Size))) +
+  facet_wrap(~Nestings) +
+  theme_classic()
 # 4. Porównaj rozmiary obiektów kwadratowych macierzy rzadkich (wymiary od 4 do 400) 
 # zawierających elementy klasy 
 # a) integer
