@@ -26,13 +26,23 @@ bwplot(
   ) +
 dotplot(sleep_total~vore, msleep, col="blue")
 
+boxplot(sleep_total~vore,
+        msleep,
+        xlab="Vore",
+        ylab="Hours of sleep per day",
+        main="Distribution of time of sleep per vore"
+        )
+stripchart(sleep_total~vore, vertical = TRUE, data = msleep, 
+           method = "jitter", add = TRUE, pch = 20, col = 'blue')
+
 #sleep awake // part of rectangle
 orderedNames <- msleep %>% arrange(sleep_total) %>% mutate(name=factor(name,name)) %>% filter(conservation=="domesticated") %>% pull(name) %>% as.factor()
-plotData <- msleep %>% filter(conservation=="domesticated") %>% gather("state", "time", sleep_total, awake)
-plotData  %>% mutate(
+plotData <- msleep %>% filter(conservation=="domesticated") %>% 
+  gather("state", "time", sleep_total, awake)  %>% mutate(
     state=factor(ifelse(state=="sleep_total", "asleep", "awake"),c("awake","asleep")),
     name=factor(name,orderedNames)
-  ) %>% 
+  ) 
+plotData %>% 
   select(name, time, state) %>% 
   ggplot(aes(x=name, y=time, fill=state)) +
   geom_bar(stat="identity") +
@@ -42,6 +52,22 @@ plotData  %>% mutate(
   theme_minimal()
 
 
+barchart(time ~ name,
+         groups=factor(plotData[["state"]], c("asleep", "awake")),
+         data=plotData,
+         stack=TRUE,
+         xlab="Specie",
+         ylab="Duration of state",
+         auto.key=list(space="right", title="State"),
+         main="Sleep awake ratio for domesticated animals")
+graphicsData <- plotData %>% select(name, state, time) %>% spread(name, time) %>% select(-state) %>% arrange(Horse) %>%as.matrix.data.frame()
+rownames(graphicsData) <- c("awake", "asleep")
+barplot(graphicsData,
+        legend=c("awake", "asleep"),
+         xlab="Specie",
+         ylab="Duration of state",
+         main="Sleep awake ratio for domesticated animals")
+        
 ######################################################################
 
 nestList <- function(seedList, leafList, level) {
@@ -95,14 +121,36 @@ sizeData %>% ggplot(aes(x=Outermost, y=Innermost, fill=Size)) +
   labs(title="Memory usage in nested list structure",
        fill="Size in bytes")
 
-levelplot(Size~Innermost*Outermost|Nestings*Nested, sizeData)
+levelplot(Size~Innermost*Outermost|Nestings*Nested,
+          sizeData,
+          auto.key=list(space="right",title="Size in bytes"))
+
+contourDataList = list()
+contourDataList[[1]]
+for(i in 1:5) {
+  for(j in 1:5) {
+    data <- sizeData %>% filter(Nested==1 & Nestings==3) %>% 
+            select(-Nested, -Nestings) %>% spread(Outermost, Size) %>% data.matrix()
+    contourDataList <- append(contourDataList, list(data))
+  }
+}
+
+
+source("./Filled.contour3.R")
+plot.new()
+par(mfrow=c(5,5), mar=rep(1,4)) 
+for(i in 1:25) {
+  filled.contour3(y=seq(0,1,length.out=ncol(tmp3)), x=seq(0,1,length.out=nrow(tmp3)), z=contourDataList[[i]] )
+}
 
 #nestings and innermost
 processedData %>% ggplot(aes(x=Elements, y=Size, col=factor(Innermost))) +
   geom_point() +
   facet_wrap(~Nestings, labeller = label_both) +
   labs(y="Size in bytes",
-       col="Nr of elements in the most nested lists")
+       col="Nr of elements in the most nested lists",
+       title="Size of nested lists"
+       )
 
 
 library(randomcoloR)
@@ -114,9 +162,12 @@ xyplot(
   col=palette,
   pch=19,
   key = list(space="right",
-             points=list(col=palette, lty=c(3,2), lwd=6),
+             columns=3,
+             title="Nr of elements \nin the most nested lists",
+             points=list(col=palette, lty=c(3,2), lwd=3),
              text=list(as.character(1:50))
-            )
+            ),
+  ylab="Size in bytes"
   )
   
 
@@ -132,7 +183,8 @@ groupedSizeData <- processedData %>% group_by(Nested, Nestings) %>% summarise(mS
 
 library(grid)
 levelplot(mSizeByElems~Nested*Nestings, groupedSizeData,
-          main="Memory eficiency for lists with different levels of nesting")
+          main="Memory eficiency for lists with different levels of nesting",
+          auto.key=list(space="right",title="Mean size\nper element\n[bytes/elem]"))
 
 grid.text("Mean size\nper element\n[bytes/elem]", y=unit(0.93, "npc"),
           x=unit(0.95, "npc"),
