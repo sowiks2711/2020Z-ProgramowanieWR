@@ -1,0 +1,118 @@
+---
+title: "Homework 2"
+author: "Sebastian Sowik"
+date: "20 11 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(wesanderson)
+library(tidyr)
+library(lattice)
+library(latticeExtra)
+library(microbenchmark)
+library(mlbench)
+library(rlang)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r nse, include=TRUE}
+
+baseR_nse <- function(func) {
+  function(data, ...) {
+    args <- as.list(substitute(...()))
+    env <- list2env(data)
+    do.call(func, args, envir=env)
+  }
+}
+
+tidy_nse <- function(f) {
+  function(data, ...) {
+    args <- exprs(...)
+    ef <- enexpr(f)
+    eval_tidy(expr((!!ef)(!!!args)), data=data)
+    
+  }
+} 
+
+test_base_nse <- function(nse_factory, func, ...) {
+  func_nse <- nse_factory(func)
+  func_nse(...)
+}
+
+test_tidy_nse <- function(nse_factory, func, ...) {
+  func_nse <- nse_factory(!!func)
+  func_nse(...)
+}
+data("Satellite" )
+
+small_list <- list(a=c(1,2,3,4), b=c(6,3,5,5))
+large_df <- Satellite
+lex <- list(a = list(1:5, LETTERS[1:5]), b = "Z", c = NA)
+lex_df <- data.frame(lex=lex,o=c(1:5))
+
+```
+
+
+## Benchmark results
+```{r benchmark, echo=FALSE}
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, min, small_list, b),
+  test_tidy_nse(tidy_nse, min, small_list, b),
+  min(small_list[["b"]])
+)
+
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, min, large_df, x.1),
+  test_tidy_nse(tidy_nse, min, large_df, x.1),
+  min(large_df[["x.1"]])
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, mean, small_list, b),
+  test_tidy_nse(tidy_nse, mean, small_list, b),
+  mean(small_list[["b"]])
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, mean, large_df, x.1),
+  test_tidy_nse(tidy_nse, mean, large_df, x.1),
+  mean(large_df[["x.1"]])
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, lm, large_df, x.1~x.2, weights=x.5),
+  test_tidy_nse(tidy_nse, lm, large_df, x.1~x.2, weights=x.5),
+  lm(x.1~x.2, large_df, weights=large_df[["x.5"]])
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, lm, small_list, a~b, weights=rep(1.2,4)),
+  test_tidy_nse(tidy_nse, lm, small_list, a~b, weights=rep(1.2,4)),
+  lm(a~b, small_list, weights=rep(1.2,4))
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, unlist, lex_df, lex, use.names=TRUE),
+  test_tidy_nse(tidy_nse, unlist, lex_df, lex, use.names=TRUE),
+  unlist(lex_df, lex, use.names=TRUE)
+)
+
+microbenchmark::microbenchmark(
+  test_base_nse(baseR_nse, unlist, lex_df, lex, use.names=FALSE),
+  test_tidy_nse(tidy_nse, unlist, lex_df, lex, use.names=FALSE),
+  unlist(lex_df, lex, use.names=TRUE)
+)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

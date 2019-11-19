@@ -1,52 +1,75 @@
-l = list(a=c(1,2,3), b=c(7,9,8))
-min(l[['b']])
-
-homework <- function(fun_not_nse) {
-  ret <- function(nse_arg, env_var) {
-    fun_not_nse(eval(substitute(nse_arg), env_var))
-  }
-}
-
-min_nse <- homework(min)
-min_nse(b, l)
-
-
-ret <- function(nse_arg, env_var) {
-  min(eval(quote(nse_arg), env_var))
-}
-ret(l, a)
-
-get_element_nse <- function(input_list, element_name) {
-  eval(substitute(element_name), input_list)
-}
-get_element_nse(l, a)
-
-
-homework2 <- function(fun_not_nse) {
-  ret <- function(nse_arg, env_var=parent.frame()) {
+baseR_nse <- function(func) {
+  function(data, ...) {
+    args <- as.list(substitute(...()))
+    env <- list2env(data)
     browser()
-    fun_not_nse(eval(quote(nse_arg), env_var))
+    do.call(func, args, envir=env)
   }
 }
 
-min_nse2 <- homework2(min) 
-l2 <- list(a=c(1,2,3,4))
-min_nse2(a, l2)
-min_nse2(c(1,2,3,4))
+tidy_nse <- function(f) {
+  function(data, ...) {
+    args <- exprs(...)
+    ef <- enexpr(f)
+    eval_tidy(expr((!!ef)(!!!args)), data=data)
+    
+  }
+} 
 
+data("Satellite" )
 
-min_nse3 <- function(data, ...) {
-  group_vars <- quote(list(...))
-  browser()
-  min(eval(substitute(group_vars,data)))
+small_list <- list(a=c(1,2,3,4), b=c(6,3,5))
+df <- Satellite
+lex <- list(a = list(1:5, LETTERS[1:5]), b = "Z", c = NA)
+
+test_function <- function(nse_factory, delegate, ...) {
+  nse_delegate <- nse_factory(delegate)
+  nse_delegate(...)
 }
 
+test_function(baseR_nse, min, small_list, b)
+test_function(baseR_nse, min, data=df, x.1~x.2, weights=x.5)
 
-grouped_mean2 <- function(.data, .summary_var, ...) {
-  summary_var <- enquo(.summary_var)
-  group_vars <- enquos(...)
-  
-  .data %>%
-    group_by(!!!group_vars) %>%
-    summarise(mean = mean(!!summary_var))
+lm(x.1~x.2, df, weights = df[['x.5']])
+lm_nse <- baseR_nse(lm)
+lm_nse(df, x.1~x.2, weights=x.5)
+
+base_min <- function() {
+  min
 }
+
+baseR_min_nse <- function() {
+  min_nse_baseR <- baseR_nse(min)
+  min_nse_baseR(small_list, a)
+}
+
+  min_nse_baseR(df, x.2)
+baseR_mean_nse <- function() {
+  mean_nse_baseR <- baseR_nse(mean)
+  mean_nse_baseR(small_list, a)
+  mean_nse_baseR(df, x.2)
+}
+
+baseR_lm_nse <- function() {
+  lm(x.1~x.2, df, weights = df[['x.5']])
+  lm_nse <- baseR_nse(lm)
+  lm_nse(df, x.1~x.2, weights=x.5)
+}
+
+tidy_lm_nse <- function() {
+  lm_nse <- tidy_nse(lm)
+  lm_nse(df, x.1~x.2, weights=x.5)
+}
+
+unlist(lex, use.names = FALSE)
+
+unlist_nse <- tidy_nse(unlist)
+unlist_nse(data.frame(lex=lex,o=c(1:5)), lex, use.names=FALSE)
+unlist_nse <- nse_substitute(unlist)
+unlist_nse(data.frame(lex=lex,o=c(1:5)), lex, use.names=FALSE)
+unlist_nse(data.frame(lex=lex,o=c(1:5)), lex, use.names=TRUE)
+unlist(lex, use.names = TRUE)
+unlist_nse(data.frame(lex=lex,o=c(1:5)), lex, use.names=TRUE)
+
+
+           
